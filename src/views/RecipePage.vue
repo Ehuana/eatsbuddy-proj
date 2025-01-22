@@ -1,7 +1,7 @@
 <!-- RecipePage.vue -->
 <template>
-  <div class="EG-Default bg-white" style="padding-top: 80px;">
-    <div class="bg-white">
+  <div class="EG-Default bg-white py-5">
+    <div class="bg-white py-5">
       <div class="container">
         <div class="row justify-content-center">
           <div class="col-xl-7 col-lg-8 col-md-10 col-12">

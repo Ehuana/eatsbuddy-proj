@@ -1,7 +1,7 @@
 <template>
-  <div class="container-fluid text-center EG-Default py-5 bg-white" style="padding-top: 80px;">
-    <div class="bg-white">
-      <div class="container">
+  <div class="container-fluid text-center EG-Default bg-white">
+    <div class="bg-white py-5">
+      <div class="container py-5">
         <div class="row justify-content-center">
           <div class="col-xl-7 col-lg-8 col-md-10 col-12">
             <div class="text-center" data-aos="fade-down" data-aos-duration="1300">

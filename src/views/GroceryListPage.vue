@@ -1,5 +1,5 @@
 <template>
-  <div class="container-fluid text-center py-5 EG-Default" style="margin-top: 80px;">
+  <div class="container-fluid text-center py-5 EG-Default bg-white" style="margin-top: 80px;">
     <div class="bg-white">
       <div class="container">
         <div class="row justify-content-center">

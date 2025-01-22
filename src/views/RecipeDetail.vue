@@ -1,5 +1,5 @@
 <template>
-  <div class="recipe-detail-page container EG-Default" data-aos="fade-up">
+  <div class="recipe-detail-page container EG-Default bg-white" data-aos="fade-up">
     <div class="bg-white py-5" v-if="recipe">
       <div class="container">
         <div class="row justify-content-center">

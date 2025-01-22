@@ -1,5 +1,5 @@
 <template>
-    <div class="EG-Default py-5" style="margin-top: 80px;">
+    <div class="EG-Default py-5" style="padding-top: 80px;">
       <!-- Breadcrumb Navigation -->
       <div class="bg-white py-4 mb-5">
         <div class="container">

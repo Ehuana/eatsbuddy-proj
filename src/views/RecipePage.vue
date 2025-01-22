@@ -1,6 +1,6 @@
 <!-- RecipePage.vue -->
 <template>
-  <div class="EG-Default bg-white" style="margin-top: 80px;">
+  <div class="EG-Default bg-white" style="padding-top: 80px;">
     <div class="bg-white">
       <div class="container">
         <div class="row justify-content-center">

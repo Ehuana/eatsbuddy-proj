@@ -1,5 +1,5 @@
 <template>
-  <div class="recipe-detail-page container EG-Default bg-white" data-aos="fade-up">
+  <div class="recipe-detail-page container EG-Default" data-aos="fade-up" style="background-color: white;">
     <div class="bg-white py-5" v-if="recipe">
       <div class="container">
         <div class="row justify-content-center">
@@ -143,39 +143,6 @@
                   </div>
                 </div>
 
-                <!-- <div class="bg-light p-5 rounded-5">
-                  <div class="mb-3">
-                    <h5 class="fw-bold">Leave a Reply</h5>
-                    <p class="small">
-                      Your email address will not be published. Required fields
-                      are marked *
-                    </p>
-                  </div>
-                  <form>
-                    <div class="row mb-4">
-                      <div class="col">
-                        <input type="text" class="form-control bg-transparent" placeholder="Name" aria-label="Name" />
-                      </div>
-                      <div class="col">
-                        <input type="email" class="form-control bg-transparent" placeholder="Email"
-                          aria-label="Email" />
-                      </div>
-                      <div class="col">
-                        <input type="text" class="form-control bg-transparent" placeholder="Website"
-                          aria-label="Website" />
-                      </div>
-                    </div>
-                    <textarea class="form-control bg-transparent mb-3" name="comment" rows="6"
-                      placeholder="Add Comment"></textarea>
-                    <div class="form-check mb-4 text-start">
-                      <input type="checkbox" class="form-check-input" id="exampleCheck1" />
-                      <label class="form-check-label small" for="exampleCheck1">Save my name, email, and website in this
-                        browser for
-                        the next time I comment.</label>
-                    </div>
-                    <a href="#" class="btn btn-success btn-lg">Post Comment</a>
-                  </form>
-                </div> -->
                 <RecipeReviewForm />
                 <RecipeReviews :recipeId="recipe.id" />
               </div>

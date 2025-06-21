@@ -19,32 +19,74 @@
     <h1 class="fw-bold display-4 mb-4" data-aos="fade-down">Manage Your Grocery Lists</h1>
     <p class="lead text-muted mb-5" data-aos="fade-up">Create and manage your grocery lists with ease!</p>
 
-    <!-- Add New Grocery List Form -->
-    <div class="card shadow-lg p-4 mx-auto col-lg-8 col-md-10 col-sm-12" data-aos="zoom-in">
-      <h3 class="mb-3 text-success fw-bold">Add a Grocery List</h3>
-      <form @submit.prevent="addNewList">
-        <div class="mb-3">
-          <label for="listName" class="form-label">List Name</label>
-          <input type="text" v-model="newListName" class="form-control" id="listName" placeholder="Enter list name">
-        </div>
-        <div class="mb-3">
-          <label for="listDate" class="form-label">Date</label>
-          <input type="datetime-local" v-model="newListDate" class="form-control" id="listDate">
-        </div>
-        <button type="submit" class="btn btn-success w-100">Add List</button>
-      </form>
+    <div v-if="!user" class="text-center my-5">
+      <div class="card shadow p-5 mx-auto col-lg-6">
+        <h3 class="mb-4">Sign in to use Grocery Lists</h3>
+        <p class="text-muted mb-4">You need to be logged in to save your grocery lists.</p>
+        <router-link to="/login" class="btn btn-primary">Sign In</router-link>
+      </div>
     </div>
 
-    <!-- Grocery Lists Section -->
-    <div class="mt-5">
-      <h3 class="fw-bold mb-4" data-aos="fade-left">Your Grocery Lists</h3>
-      <div v-if="groceryLists.length > 0">
-        <div class="row">
-          <GroceryList v-for="(list, index) in groceryLists" :key="index" :list="list" class="col-lg-6 col-md-8 col-sm-12 mb-4" @remove-list="removeList(index)"/>
-        </div>
+    <div v-else>
+      <!-- Add New Grocery List Form -->
+      <div class="card shadow-lg p-4 mx-auto col-lg-8 col-md-10 col-sm-12 mb-5" data-aos="zoom-in">
+        <h3 class="mb-3 text-success fw-bold">Add a Grocery List</h3>
+        <form @submit.prevent="addNewList">
+          <div class="mb-3">
+            <label for="listName" class="form-label">List Name</label>
+            <input 
+              type="text" 
+              v-model="newListName" 
+              class="form-control" 
+              id="listName" 
+              placeholder="Enter list name"
+              required
+            >
+          </div>
+          <div class="mb-3">
+            <label for="listDate" class="form-label">Date</label>
+            <input 
+              type="date" 
+              v-model="newListDate" 
+              class="form-control" 
+              id="listDate"
+              required
+            >
+          </div>
+          <button type="submit" class="btn btn-success w-100" :disabled="loading">
+            <span v-if="loading" class="spinner-border spinner-border-sm me-2" role="status"></span>
+            Add List
+          </button>
+        </form>
       </div>
-      <div v-else>
-        <p class="text-muted" data-aos="fade-up">No grocery lists yet. Time to get cracking, or you might end up having cereal for dinner...again. 🥣</p>
+
+      <!-- Grocery Lists Section -->
+      <div class="mt-5" v-if="!loading">
+        <h3 class="fw-bold mb-4" data-aos="fade-left">Your Grocery Lists</h3>
+        
+        <div v-if="loadingLists" class="text-center my-5">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+        </div>
+        
+        <div v-else-if="groceryLists.length > 0" class="row justify-content-center">
+          <div class="col-lg-8 col-md-10 col-sm-12">
+            <GroceryList 
+              v-for="list in groceryLists" 
+              :key="list.id" 
+              :list="list" 
+              class="mb-4" 
+              @remove-list="removeList(list.id)"
+            />
+          </div>
+        </div>
+        
+        <div v-else>
+          <p class="text-muted" data-aos="fade-up">
+            No grocery lists yet. Time to get cracking, or you might end up having cereal for dinner...again. 🥣
+          </p>
+        </div>
       </div>
     </div>
   </div>
@@ -52,43 +94,105 @@
 
 <script>
 import GroceryList from '@/components/GroceryList.vue';
+import { useAuth } from '@/composables/useAuth';
+import { useFirestore } from '@/composables/useFirestore';
+import { ref, onMounted } from 'vue';
+import AOS from "aos";
+import "aos/dist/aos.css";
 
 export default {
   components: {
     GroceryList,
   },
-  data() {
-    return {
-      newListName: '',
-      newListDate: '',
-      groceryLists: [],
-    };
-  },
-  methods: {
-    addNewList() {
-      if (this.newListName && this.newListDate) {
-        this.groceryLists.push({
-          name: this.newListName,
-          date: this.newListDate,
-          items: [],
-        });
-        this.newListName = '';
-        this.newListDate = '';
+  setup() {
+    const { user } = useAuth();
+    const { addToCollection, queryByField, deleteDocument } = useFirestore();
+    
+    const newListName = ref('');
+    const newListDate = ref('');
+    const groceryLists = ref([]);
+    const loading = ref(false);
+    const loadingLists = ref(false);
+    
+    onMounted(() => {
+      AOS.init();
+      if (user.value) {
+        loadGroceryLists();
       }
-    },
-    removeList(index) {
-      this.groceryLists.splice(index, 1);
-    },
-  },
+    });
+    
+    const loadGroceryLists = async () => {
+      try {
+        loadingLists.value = true;
+        const lists = await queryByField('grocery_lists', 'userId', user.value.uid);
+        groceryLists.value = lists.sort((a, b) => 
+          new Date(b.createdAt.toDate()) - new Date(a.createdAt.toDate())
+        );
+      } catch (err) {
+        console.error('Failed to load grocery lists', err);
+      } finally {
+        loadingLists.value = false;
+      }
+    };
+    
+    const addNewList = async () => {
+      if (!newListName.value || !newListDate.value || !user.value) return;
+      
+      try {
+        loading.value = true;
+        
+        const newList = {
+          name: newListName.value,
+          date: newListDate.value,
+          items: [],
+          userId: user.value.uid,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+        
+        await addToCollection('grocery_lists', newList);
+        newListName.value = '';
+        newListDate.value = '';
+        
+        await loadGroceryLists();
+      } catch (err) {
+        console.error('Failed to create grocery list', err);
+      } finally {
+        loading.value = false;
+      }
+    };
+    
+    const removeList = async (id) => {
+      if (confirm('Are you sure you want to delete this grocery list?')) {
+        try {
+          await deleteDocument('grocery_lists', id);
+          await loadGroceryLists();
+        } catch (err) {
+          console.error('Failed to delete grocery list', err);
+        }
+      }
+    };
+    
+    return {
+      user,
+      newListName,
+      newListDate,
+      groceryLists,
+      loading,
+      loadingLists,
+      addNewList,
+      removeList
+    };
+  }
 };
 </script>
 
 <style scoped>
-.grocery-list-container {
-  margin-bottom: 2rem;
+.EG-Default {
+  margin-top: 80px;
 }
 
-template{
-  padding-bottom: 150px;
+.grocery-list-container {
+  margin-bottom: 2rem;
 }
 </style>

@@ -1,178 +1,287 @@
 <template>
-    <footer class="text-center EG-Default text-lg-start bg-body-tertiary text-muted">
-        <!-- Section: Social media -->
-        <section class="d-flex justify-content-center justify-content-lg-between p-4 border-bottom">
-            <!-- Left -->
-            <div class="me-5 d-none d-lg-block">
-                <span>Get connected with us on social networks:</span>
+    <footer class="EG-Default footer-area">
+        <!-- Subscribe Section -->
+        <div class="subscribe-section">
+            <div class="container">
+                <div class="row align-items-center">
+                    <div class="col-lg-6">
+                        <h3 class="text-white mb-3">Subscribe to Our Newsletter</h3>
+                        <p class="text-white-50">Get weekly recipes, meal planning tips, and special offers.</p>
+                    </div>
+                    <div class="col-lg-6">
+                        <div class="input-group">
+                            <input type="email" class="form-control" placeholder="Your email address">
+                            <button class="btn btn-success" type="button">Subscribe</button>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <!-- Left -->
-
-            <!-- Right -->
-            <div>
-                <a href="" class="me-4 text-reset">
-                    <i class="fab fa-facebook-f"></i>
-                </a>
-                <a href="" class="me-4 text-reset">
-                    <i class="fab fa-twitter"></i>
-                </a>
-                <a href="" class="me-4 text-reset">
-                    <i class="fab fa-google"></i>
-                </a>
-                <a href="" class="me-4 text-reset">
-                    <i class="fab fa-instagram"></i>
-                </a>
-                <a href="" class="me-4 text-reset">
-                    <i class="fab fa-linkedin"></i>
-                </a>
-                <a href="" class="me-4 text-reset">
-                    <i class="fab fa-github"></i>
-                </a>
-            </div>
-            <!-- Right -->
-        </section>
-        <!-- Section: Social media -->
-
-        <!-- Section: Links  -->
-        <section class="">
-            <div class="container text-center text-md-start mt-5">
-                <!-- Grid row -->
-                <div class="row mt-3">
-                    <!-- Grid column -->
-                    <div class="col-md-3 col-lg-4 col-xl-3 mx-auto mb-4">
-                        <!-- Content -->
-                        <h6 class="text-uppercase fw-bold mb-4">
-                            <i class="fas fa-gem me-3"></i>EatsBuddy
-                        </h6>
-                        <p>
+        </div>        <!-- Main Footer Content -->
+        <div class="footer-main">
+            <div class="container">
+                <div class="row">
+                    <!-- About Column -->
+                    <div class="col-lg-5 col-md-6 mb-4 mb-lg-0">
+                        <div class="footer-logo mb-3 text-start">
+                            <h2>EatsBuddy</h2>
+                        </div>
+                        <p class="footer-desc text-start">
                             Simplify your meals and grocery shopping effortlessly. Explore recipes, plan meals, and
                             manage grocery lists, all in one place.
                         </p>
+                        <div class="social-links mt-4">
+                            <a href="#" aria-label="Facebook"><i class="ri-facebook-fill"></i></a>
+                            <a href="#" aria-label="Twitter"><i class="ri-twitter-fill"></i></a>
+                            <a href="#" aria-label="Instagram"><i class="ri-instagram-line"></i></a>
+                            <a href="#" aria-label="Pinterest"><i class="ri-pinterest-fill"></i></a>
+                            <a href="#" aria-label="Youtube"><i class="ri-youtube-fill"></i></a>
+                        </div>
                     </div>
-                    <!-- Grid column -->
 
-                    <!-- Grid column -->
-                    <div class="col-md-2 col-lg-2 col-xl-2 mx-auto mb-4">
-                        <h6 class="text-uppercase fw-bold mb-4">
-                            Trending Recipes
-                        </h6>
-                        <p v-for="recipe in trendingRecipes" :key="recipe.id">
-                            <router-link :to="'/recipes/' + recipe.id" class="text-reset nav-link">
-                                {{ recipe.title }}
-                                <i v-if="recipe.isNew" class="fa-solid fa-fire" style="color: #ed840c;"></i>
-                            </router-link>
-                        </p>
+                    <!-- Quick Links Column -->
+                    <div class="col-lg-3 col-md-6 mb-4 mb-lg-0">
+                        <h5 class="footer-heading text-start">Quick Links</h5>
+                        <ul class="footer-links text-start">
+                            <li><router-link to="/">Home</router-link></li>
+                            <li><router-link to="/recipes">Recipes</router-link></li>
+                            <li><router-link to="/meal-planner">Meal Planner</router-link></li>
+                            <li><router-link to="/grocery-list">Grocery List</router-link></li>
+                            <li><router-link to="/about">About Us</router-link></li>
+                            <li><router-link to="/contact">Contact</router-link></li>
+                        </ul>
                     </div>
-                    <!-- Grid column -->
 
-                    <!-- Grid column -->
-                    <div class="col-md-3 col-lg-2 col-xl-2 mx-auto mb-4">
-                        <!-- Links -->
-                        <h6 class="text-uppercase fw-bold mb-4">
-                            Useful links
-                        </h6>
-                        <p>
-                            <router-link to="/meal-planner" class="nav-link">Meal Planner</router-link>
-                        </p>
-                        <p>
-                            <router-link to="/grocery-list" class="nav-link">Grocery List</router-link>
-                        </p>
-                        <p>
-                            <router-link to="/about" class="nav-link">About Us</router-link>
-                        </p>
-                        <p>
-                            <router-link to="/about" class="nav-link">Terms</router-link>
-                        </p>
+                    <!-- Contact Column -->
+                    <div class="col-lg-4 col-md-6">
+                        <h5 class="footer-heading text-start">Contact Info</h5>
+                        <ul class="footer-contact text-start">
+                            <li>
+                                <i class="ri-map-pin-line"></i>
+                                <div>
+                                    <span>Phnom Penh 120201, Cambodia</span>
+                                </div>
+                            </li>
+                            <li>
+                                <i class="ri-mail-line"></i>
+                                <div>
+                                    <a href="mailto:info@eatsbuddy.com">info@eatsbuddy.com</a>
+                                </div>
+                            </li>
+                            <li>
+                                <i class="ri-phone-line"></i>
+                                <div>
+                                    <a href="tel:+85508058682">+855 080 586 824</a>
+                                </div>
+                            </li>
+                            <li>
+                                <i class="ri-time-line"></i>
+                                <div>
+                                    <span>Monday - Friday: 9:00 AM - 6:00 PM</span>
+                                </div>
+                            </li>
+                        </ul>
                     </div>
-                    <!-- Grid column -->
-
-                    <!-- Grid column -->
-                    <div class="col-md-4 col-lg-3 col-xl-3 mx-auto mb-md-0 mb-4">
-                        <!-- Links -->
-                        <h6 class="text-uppercase fw-bold mb-4">Contact</h6>
-                        <p><i class="fas fa-home me-3"></i> Phnom Penh 120201, Cambodia</p>
-                        <p>
-                            <i class="fas fa-envelope me-3"></i>
-                            info@eatsbuddy.com
-                        </p>
-                        <p><i class="fas fa-phone me-3"></i> +855 080 586 824</p>
-                        <p><i class="fas fa-print me-3"></i> +855 088 822 8279</p>
-                    </div>
-                    <!-- Grid column -->
                 </div>
-                <!-- Grid row -->
             </div>
-        </section>
-        <!-- Section: Links  -->
-
-        <!-- Copyright -->
-        <div class="text-white text-center p-4 greenbgs">
-            © 2024 EatsBuddy. All Rights Reserved.
         </div>
-        <!-- Copyright -->
+
+        <!-- Copyright Section -->
+        <div class="copyright">
+            <div class="container">                <div class="row align-items-center">
+                    <div class="col-md-6">
+                        <p class="mb-md-0">© {{ currentYear }} EatsBuddy. All Rights Reserved.</p>
+                    </div>
+                    <div class="col-md-6 text-md-end">
+                        <ul class="policy-links">
+                            <li><router-link to="/privacy">Privacy Policy</router-link></li>
+                            <li><router-link to="/terms">Terms of Service</router-link></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
     </footer>
 </template>
 
 <script>
-import { getTrendingRecipes } from '@/services/recipeService';
-
 export default {
   name: "Footer",
   data() {
     return {
-      trendingRecipes: []
+      currentYear: new Date().getFullYear()
     };
-  },
-  created() {
-    // Get trending recipes when component is created
-    this.trendingRecipes = getTrendingRecipes(4).map(recipe => ({
-      ...recipe,
-      isNew: this.isNewRecipe(recipe.date) // Add logic to check if recipe is new
-    }));
-  },
-  methods: {
-    isNewRecipe(date) {
-      // Consider a recipe "new" if it's less than 30 days old
-      const recipeDate = new Date(date);
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      return recipeDate > thirtyDaysAgo;
-    }
   }
 };
 </script>
 
-<style>
-.greengoods {
-    color: #17B97A;
+<style scoped>
+/* Subscribe section */
+.subscribe-section {
+  background-color: #17B97A;
+  padding: 2.5rem 0;
 }
 
-.greenbgs {
-    background-color: #17B97A;
+/* Main footer section */
+.footer-main {
+  background-color: #2c3e50;
+  color: #fff;
+  padding: 4rem 0 3rem;
 }
 
-footer ul {
-    padding: 0;
-    list-style: none;
+.footer-logo h2 {
+  color: white;
+  font-weight: 700;
+  font-size: 2rem;
+  margin-bottom: 0;
 }
 
-footer ul li {
-    margin-bottom: 5px;
+.footer-desc {
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.6;
 }
 
-footer ul li a:hover {
-    text-decoration: underline;
+.footer-heading {
+  color: white;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+  position: relative;
+  padding-bottom: 10px;
+  text-align: left;
 }
 
-footer i:hover {
-    color: #28a745;
-}
-
-/* .footer {
+.footer-heading::after {
+  content: '';
   position: absolute;
   left: 0;
   bottom: 0;
-  width: 100%;
-  height: 114px;
-} */
+  width: 50px;
+  height: 2px;
+  background-color: #17B97A;
+}
+
+/* Social links */
+.social-links {
+  display: flex;
+  gap: 0.8rem;
+}
+
+.social-links a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border-radius: 50%;
+  text-decoration: none;
+  transition: all 0.3s ease;
+}
+
+.social-links a:hover {
+  background-color: #17B97A;
+  transform: translateY(-3px);
+}
+
+/* Footer links */
+.footer-links {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.footer-links li {
+  margin-bottom: 0.7rem;
+}
+
+.footer-links li a {
+  color: rgba(255, 255, 255, 0.7);
+  text-decoration: none;
+  transition: all 0.3s ease;
+  display: inline-block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  text-align: left;
+}
+
+.footer-links li a:hover {
+  color: #17B97A;
+  padding-left: 5px;
+}
+
+/* Footer contact */
+.footer-contact {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.footer-contact li {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  align-items: flex-start;
+  text-align: left;
+}
+
+.footer-contact li i {
+  color: #17B97A;
+  font-size: 1.2rem;
+  margin-top: 0.2rem;
+}
+
+.footer-contact li div {
+  flex: 1;
+}
+
+.footer-contact li a {
+  color: rgba(255, 255, 255, 0.7);
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+.footer-contact li a:hover {
+  color: #17B97A;
+}
+
+/* Copyright section */
+.copyright {
+  background-color: #243141;
+  color: rgba(255, 255, 255, 0.7);
+  padding: 1.2rem 0;
+}
+
+.policy-links {
+  display: flex;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  gap: 1.5rem;
+  justify-content: flex-end;
+}
+
+.policy-links li a {
+  color: rgba(255, 255, 255, 0.7);
+  text-decoration: none;
+  font-size: 0.9rem;
+  transition: color 0.3s ease;
+}
+
+.policy-links li a:hover {
+  color: #17B97A;
+}
+
+/* Responsive adjustments */
+@media (max-width: 767.98px) {
+  .footer-heading {
+    margin-top: 1.5rem;
+  }
+  
+  .policy-links {
+    justify-content: center;
+    margin-top: 1rem;
+  }
+}
 </style>

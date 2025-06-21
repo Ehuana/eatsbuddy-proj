@@ -11,12 +11,18 @@
     <Navbar />
     <router-view />
     <Footer />
+    
+    <!-- Toast Container -->
+    <ToastContainer />
   </div>
 </template>
 
 <script>
 import Navbar from './components/Navbar.vue';
 import Footer from './components/Footer.vue';
+import { onMounted, ref, watch } from 'vue';
+import { useAuth } from '@/composables/useAuth';
+import { ToastContainer } from '@/composables/useToast';
 
 import "@fortawesome/fontawesome-free/css/all.css";
 import "@fortawesome/fontawesome-free/js/all.js";
@@ -32,27 +38,47 @@ export default {
   components: {
     Navbar,
     Footer,
+    ToastContainer
   },
-  data() {
-    return {
-      isLoading: true
-    }
-  },
-  mounted() {
-    // Initialize AOS
-    AOS.init({
-      duration: 800,
-      easing: 'ease-in-out',
-      once: true,
-      mirror: false,
+  setup() {
+    const { user } = useAuth();
+    const isLoading = ref(true);
+    
+    onMounted(() => {
+      console.log("App component mounted, checking auth status");
+      
+      // Initialize AOS
+      AOS.init({
+        duration: 800,
+        easing: 'ease-in-out',
+        once: true,
+        mirror: false,
+      });
+      
+      // Hide loading after initial page load
+      window.addEventListener('load', () => {
+        setTimeout(() => {
+          isLoading.value = false;
+          console.log("App loaded, loading state disabled");
+        }, 800); // shorter delay for better UX
+      });
+      
+      // Fallback in case 'load' event already fired
+      setTimeout(() => {
+        isLoading.value = false;
+        console.log("App loading timeout reached, loading state disabled");
+      }, 1500); // shorter timeout
+      
+      // Set up watcher for auth state
+      watch(user, (newUser) => {
+        console.log("Auth state changed in App:", newUser ? "User logged in" : "No user");
+      });
     });
     
-    // Hide loading after initial page load
-    window.addEventListener('load', () => {
-      setTimeout(() => {
-        this.isLoading = false;
-      }, 1000); // 1 second delay to ensure everything is loaded
-    });
+    return {
+      isLoading,
+      user
+    };
   },
   watch: {
     $route() {
@@ -99,16 +125,6 @@ export default {
   background-color: white;
 }
 
-nav {
-  padding: 30px;
-
-  a {
-    font-weight: bold;
-    color: #2c3e50;
-
-    &.router-link-exact-active {
-      color: #42b983;
-    }
-  }
-}
+/* Add icons via Remixicon CDN */
+@import url("https://cdn.jsdelivr.net/npm/remixicon@2.5.0/fonts/remixicon.css");
 </style>

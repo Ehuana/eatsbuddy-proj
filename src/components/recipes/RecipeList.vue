@@ -1,103 +1,507 @@
 <template>
     <div>
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <div class="input-group w-50">
+            <div class="input-group w-75">
                 <input type="text" v-model="searchQuery" class="form-control" placeholder="Search for recipes...">
+                <button class="btn btn-success" @click="searchRecipes">Search</button>
             </div>
-            <select v-model="sortOption" class="form-select w-auto">
-                <option value="latest">Sort by Latest</option>
-                <option value="popular">Sort by Popular</option>
-                <option value="rating">Sort by Rating</option>
+            
+            <!-- This sort dropdown will only be visible on mobile -->
+            <select v-if="isMobile" v-model="internalSortOption" class="form-select w-auto d-block d-lg-none" @change="handleSortChange">
+                <option value="name">Sort by Name</option>
+                <option value="popularity">Sort by Popularity</option>
+                <option value="time">Sort by Preparation Time</option>
+                <option value="random">Random Order</option>
             </select>
         </div>
-        <div class="row g-4">
-            <RecipeItem v-for="recipe in filteredRecipes" :key="recipe.id" :recipe="recipe" />
+        
+        <!-- Active Filters Display -->
+        <div v-if="hasActiveFilters" class="active-filters mb-3">
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+                <span class="text-muted me-2">Active Filters:</span>
+                <span v-if="activeFilters.ingredient" class="badge bg-light text-dark">
+                    Ingredient: {{ activeFilters.ingredient }}
+                    <button class="btn-close btn-close-sm ms-1" @click="removeFilter('ingredient')"></button>
+                </span>
+                <span v-if="activeFilters.category" class="badge bg-light text-dark">
+                    Category: {{ activeFilters.category }}
+                    <button class="btn-close btn-close-sm ms-1" @click="removeFilter('category')"></button>
+                </span>
+                <span v-if="activeFilters.area" class="badge bg-light text-dark">
+                    Cuisine: {{ activeFilters.area }}
+                    <button class="btn-close btn-close-sm ms-1" @click="removeFilter('area')"></button>
+                </span>
+                <button v-if="hasActiveFilters" class="btn btn-sm btn-outline-danger ms-2" @click="clearAllFilters">
+                    Clear All
+                </button>
+            </div>
         </div>
-        <nav aria-label="Page navigation" class="mt-4">
+        
+        <div v-if="loading" class="text-center my-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-3">Searching for delicious recipes...</p>
+        </div>        <div v-else-if="error" class="alert" :class="error.includes('TheMealDB') ? 'alert-warning' : 'alert-danger'" role="alert">
+            <i class="ri-error-warning-line me-2"></i> {{ error }}
+            <button v-if="error.includes('TheMealDB')" class="btn btn-outline-secondary btn-sm ms-2" @click="fetchRecipeData">
+                Try Again
+            </button>
+        </div>
+        
+        <div v-else-if="recipes.length === 0" class="text-center my-5">
+            <p>No recipes found. Try a different search term.</p>
+        </div>
+        
+        <div v-else class="row g-4">
+            <RecipeItem v-for="recipe in recipes" :key="recipe.id" :recipe="recipe" />
+        </div>        <nav v-if="recipes.length > 0 && totalResults > pageSize" aria-label="Page navigation" class="mt-4">
+            <div v-if="loading" class="text-center mb-2">
+                <small class="text-muted">Loading page {{ currentPage }}...</small>
+                <div class="progress" style="height: 4px;">
+                    <div class="progress-bar bg-success progress-bar-striped progress-bar-animated" style="width: 100%"></div>
+                </div>
+            </div>
             <ul class="pagination justify-content-center">
-                <li class="page-item" :class="{ disabled: currentPage === 1 }">
-                    <a class="page-link" href="#" @click.prevent="changePage(currentPage - 1)">&laquo;</a>
+                <li class="page-item" :class="{ disabled: currentPage === 1 || loading }">
+                    <a class="page-link" href="#" @click.prevent="changePage(currentPage - 1)">
+                        <i class="ri-arrow-left-s-line"></i> Previous
+                    </a>
                 </li>
-                <li class="page-item" v-for="page in totalPages" :key="page" :class="{ active: currentPage === page }">
+                <li class="page-item" v-if="displayedPages[0] > 1">
+                    <a class="page-link" href="#" @click.prevent="changePage(1)">1</a>
+                </li>
+                <li class="page-item disabled" v-if="displayedPages[0] > 2">
+                    <span class="page-link">...</span>
+                </li>
+                <li class="page-item" v-for="page in displayedPages" :key="page" :class="{ active: currentPage === page, disabled: loading }">
                     <a class="page-link" href="#" @click.prevent="changePage(page)">{{ page }}</a>
                 </li>
-                <li class="page-item" :class="{ disabled: currentPage === totalPages }">
-                    <a class="page-link" href="#" @click.prevent="changePage(currentPage + 1)">&raquo;</a>
+                <li class="page-item disabled" v-if="displayedPages[displayedPages.length - 1] < totalPages - 1">
+                    <span class="page-link">...</span>
+                </li>
+                <li class="page-item" v-if="displayedPages[displayedPages.length - 1] < totalPages">
+                    <a class="page-link" href="#" @click.prevent="changePage(totalPages)">{{ totalPages }}</a>
+                </li>
+                <li class="page-item" :class="{ disabled: currentPage === totalPages || loading }">
+                    <a class="page-link" href="#" @click.prevent="changePage(currentPage + 1)">
+                        Next <i class="ri-arrow-right-s-line"></i>
+                    </a>
                 </li>
             </ul>
+            <div class="text-center mt-2">
+                <small class="text-muted">
+                    Showing page {{ currentPage }} of {{ totalPages }} 
+                    ({{ totalResults }} total recipes)
+                </small>
+            </div>
         </nav>
     </div>
 </template>
 
 <script>
+import { ref, computed, watch, onMounted } from 'vue';
+import RecipeItem from './RecipeItem.vue';
+import { searchRecipes as fetchRecipes, getRecipesByCategory, getRecipesByArea, getRecipesByIngredient } from '@/services/mealApi';
+import { sortByRelevance, sortRecipes, generateMockRecipes } from '@/utils/recipeUtils';
 import AOS from 'aos';
 import 'aos/dist/aos.css';
-import RecipeItem from './RecipeItem.vue';
 
 export default {
     components: {
         RecipeItem,
     },
-    data() {
-        return {
-            searchQuery: '',
-            sortOption: 'latest',
-            currentPage: 1,
-            recipes: [
-                { id: 1, title: 'Amok Fish', description: 'A traditional Cambodian dish with coconut and spices.', image: require('@/assets/img/AmokFish.jpg'), popularity: 5, rating: 4.8, category: 'Main Course', author: 'Elite', date: 'June 20, 2019', authorImage: require('@/assets/img/person.png') },
-                { id: 2, title: 'Beef Lok Lak', description: 'A flavorful stir-fried beef dish everyone loves.', image: require('@/assets/img/LokLak.jpg'), popularity: 4, rating: 4.5, category: 'Main Course', author: 'Piseth', date: 'July 01, 2019', authorImage: require('@/assets/img/person.png') },
-                { id: 3, title: 'Num Banh Chok', description: 'Khmer noodles with green curry sauce.', image: require('@/assets/img/NBChok.jpg'), popularity: 3, rating: 4.6, category: 'Main Course', author: 'Veasna', date: 'September 19, 2019', authorImage: require('@/assets/img/person.png') },
-                { id: 4, title: 'Kuy Teav', description: 'A popular Cambodian noodle soup.', image: require('@/assets/img/KuyTeav.jpg'), popularity: 2, rating: 4.3, category: 'Main Course', author: 'Thida', date: 'May 23, 2020', authorImage: require('@/assets/img/person.png') },
-                { id: 5, title: 'Bai Sach Chrouk', description: 'Pork and rice dish with pickled vegetables.', image: require('@/assets/img/BSJruk.jpg'), popularity: 5, rating: 4.7, category: 'Main Course', author: 'Sokha', date: 'August 12, 2020', authorImage: require('@/assets/img/person.png') },
-                { id: 6, title: 'Trey Chien Choun', description: 'Deep-fried fish with a tangy tamarind sauce.', image: require('@/assets/img/TCChoun.jpg'), popularity: 1, rating: 4.1, category: 'Main Course', author: 'Thida', date: 'August 12, 2020', authorImage: require('@/assets/img/person.png') },
-                { id: 7, title: 'Cha Houy Teuk', description: 'A refreshing Cambodian dessert with coconut milk and jelly.', image: require('@/assets/img/CHTeuk.jpg'), popularity: 4, rating: 4.4, category: 'Dessert', author: 'Panha', date: 'October 23, 2020', authorImage: require('@/assets/img/person.png') },
-                { id: 8, title: 'Prahok Ktis', description: 'A spicy dip made with fermented fish paste.', image: require('@/assets/img/PHKtis.jpg'), popularity: 3, rating: 4.5, category: 'Appetizer', author: 'Raksa', date: 'October 31, 2021', authorImage: require('@/assets/img/person.png') },
-                { id: 9, title: 'Samlor Korko', description: 'A hearty soup with vegetables and fish.', image: require('@/assets/img/SKKo.jpg'), popularity: 2, rating: 4.2, category: 'Appetizer', author: 'Elite', date: 'November 09, 2021', authorImage: require('@/assets/img/person.png') },
-                { id: 10, title: 'Bruschetta', description: 'Toasted bread topped with a fresh mix of vegies drizzled with olive oil and balsamic glaze.', image: require('@/assets/img/BSCHTA.jpg'), popularity: 1, rating: 4.0, category: 'Appetizer', author: 'Youim', date: 'December 25, 2021', authorImage: require('@/assets/img/person.png') },
-                { id: 11, title: 'Bok Lahong', description: 'Green papaya salad with peanuts and dried shrimp.', image: require('@/assets/img/BLHong.jpg'), popularity: 5, rating: 4.9, category: 'Appetizer', author: 'Youim', date: 'January 01, 2022', authorImage: require('@/assets/img/person.png') },
-                { id: 12, title: 'Kralan', description: 'Bamboo sticky rice cooked in a bamboo tube.', image: require('@/assets/img/Kralan.jpg'), popularity: 4, rating: 4.3, category: 'Dessert', author: 'Tey', date: 'February 14, 2022', authorImage: require('@/assets/img/person.png') },
-                { id: 13, title: 'Sach Ko Ang', description: 'Grilled beef skewers with a tangy lime and pepper dipping sauce.', image: require('@/assets/img/SKAng.jpg'), popularity: 3, rating: 4.1, category: 'Dessert', author: 'Sa', date: 'February 15, 2022', authorImage: require('@/assets/img/person.png') },
-                { id: 14, title: 'Mango Sticky Rice', description: 'Sweet sticky rice topped with fresh mango slices and drizzled with coconut milk.', image: require('@/assets/img/MSRice.jpg'), popularity: 2, rating: 4.4, category: 'Dessert', author: 'Piseth', date: 'March 01, 2022', authorImage: require('@/assets/img/person.png') },
-                { id: 15, title: 'Trey Chha Kreung', description: 'Stir-fried fish with lemongrass and kroeung.', image: require('@/assets/img/TCKR.jpg'), popularity: 5, rating: 4.6, category: 'Main Course', author: 'Veasna', date: 'March 15, 2022', authorImage: require('@/assets/img/person.png') },
-                { id: 16, title: 'Num Pang Sach', description: 'Lightly flamed bread with meat and veggie fillings.', image: require('@/assets/img/NPS.jpg'), popularity: 5, rating: 3.8, category: 'Dessert', author: 'Sa', date: 'April 01, 2022', authorImage: require('@/assets/img/person.png') },
-                { id: 17, title: 'Num Pang Siv Mai', description: 'Num Pang Sach but with Siv Mai sauce to dip.', image: require('@/assets/img/NPSM.jpg'), popularity: 3, rating: 4.1, category: 'Dessert', author: 'Panha', date: 'April 15, 2022', authorImage: require('@/assets/img/person.png') },
-                { id: 18, title: 'Somlor Machu Kroeung', description: 'A tangy Cambodian soup made with tamarind, lemongrass, and fish.', image: require('@/assets/img/SMKR.jpg'), popularity: 4, rating: 4.4, category: 'Dessert', author: 'HuyKheang', date: 'May 01, 2022', authorImage: require('@/assets/img/person.png') },
-                { id: 19, title: 'Banana Blossom Salad', description: 'A refreshing salad made with banana blossoms, herbs, and a tangy dressing.', image: require('@/assets/img/BBSalad.jpg'), popularity: 3, rating: 4.5, category: 'Dessert', author: 'HuyKheang', date: 'July 23, 2022', authorImage: require('@/assets/img/person.png')  },
-                { id: 20, title: 'Khmer Scallion Pancakes', description: 'Crispy pancakes with scallions, perfect as an appetizer or snack.', image: require('@/assets/img/KSPC.jpg'), popularity: 2, rating: 4.3, category: 'Dessert', author: 'Elite', date: 'September 01, 2024', authorImage: require('@/assets/img/person.png') },
-            ]
+    props: {
+        selectedFilters: {
+            type: Object,
+            default: () => ({
+                ingredient: '',
+                category: '',
+                area: ''
+            })
+        },
+        sortOption: {
+            type: String,
+            default: 'popularity'
+        }
+    },
+    setup(props) {
+        const searchQuery = ref('');
+        const internalSortOption = ref('');
+        const currentPage = ref(1);
+        const recipes = ref([]);
+        const loading = ref(false);
+        const error = ref('');
+        const totalResults = ref(0);
+        const pageSize = 12; // Number of recipes per page
+        const activeFilters = ref({
+            ingredient: '',
+            category: '',
+            area: ''
+        });
+        const allRecipes = ref([]); // Store all fetched recipes for client-side filtering/sorting
+          
+        // Computed properties
+        const totalPages = computed(() => {
+            // Limit total pages to avoid excessive API calls
+            const calculatedPages = Math.min(Math.ceil(totalResults.value / pageSize), 20);
+            return calculatedPages;
+        });
+        
+        const displayedPages = computed(() => {
+            const pages = [];
+            // Show a smaller window on mobile, wider on desktop
+            const windowSize = window.innerWidth < 768 ? 1 : 2;
+            
+            let startPage = Math.max(1, currentPage.value - windowSize);
+            let endPage = Math.min(totalPages.value, currentPage.value + windowSize);
+            
+            // Adjust start/end to always show the same number of page links when possible
+            if (endPage - startPage < windowSize * 2 && totalPages.value > windowSize * 2 + 1) {
+                if (startPage === 1) {
+                    endPage = Math.min(totalPages.value, windowSize * 2 + 1);
+                } else if (endPage === totalPages.value) {
+                    startPage = Math.max(1, totalPages.value - windowSize * 2);
+                }
+            }
+            
+            for (let i = startPage; i <= endPage; i++) {
+                pages.push(i);
+            }
+            
+            return pages;
+        });
+        
+        // Computed property for checking if we're on mobile
+        const isMobile = computed(() => {
+            // Will be updated on window resize
+            return window.innerWidth < 992;
+        });
+        
+        // Check if there are any active filters
+        const hasActiveFilters = computed(() => {
+            return activeFilters.value.ingredient || 
+                   activeFilters.value.category || 
+                   activeFilters.value.area;
+        });
+        
+        // Helper function to process recipes
+        const processRecipes = (recipesList) => {
+            if (!Array.isArray(recipesList)) {
+                throw new Error('Invalid recipe data format: expected array');
+            }
+            
+            recipes.value = recipesList.map(recipe => ({
+                id: recipe.id,
+                title: recipe.title,
+                image: recipe.image || 'https://via.placeholder.com/556x370?text=No+Image+Available',
+                description: recipe.summary ? recipe.summary.substring(0, 100) + '...' : 'Delicious recipe',
+                rating: 4.5, // TheMealDB doesn't provide ratings, using default
+                category: recipe.category || 'Main Course',
+                cookingTime: recipe.readyInMinutes || 30,
+                servings: recipe.servings || 4,
+                author: 'TheMealDB',
+                type: recipe.dishTypes && recipe.dishTypes.length > 0 ? 
+                    recipe.dishTypes[0].toUpperCase().replace(' ', '_') : 'MAIN_COURSE'
+            }));
         };
-    },
-    computed: {
-        filteredRecipes() {
-            let filtered = this.recipes.filter(recipe => recipe.title.toLowerCase().includes(this.searchQuery.toLowerCase()));
-            if (this.sortOption === 'latest') {
-                filtered = filtered.reverse();
-            } else if (this.sortOption === 'popular') {
-                filtered = filtered.sort((a, b) => b.popularity - a.popularity);
-            } else if (this.sortOption === 'rating') {
-                filtered = filtered.sort((a, b) => b.rating - a.rating);
+        
+        // Sync active filters with props
+        const updateActiveFilters = () => {
+            activeFilters.value = {
+                ingredient: props.selectedFilters.ingredient || '',
+                category: props.selectedFilters.category || '',
+                area: props.selectedFilters.area || ''
+            };
+        };
+        
+        // Remove a specific filter
+        const removeFilter = (type) => {
+            activeFilters.value[type] = '';
+            currentPage.value = 1;
+            fetchRecipeData();
+        };
+        
+        // Clear all active filters
+        const clearAllFilters = () => {
+            activeFilters.value = {
+                ingredient: '',
+                category: '',
+                area: ''
+            };
+            currentPage.value = 1;
+            fetchRecipeData();
+        };
+        
+        // Handler for internal sort option changes
+        const handleSortChange = () => {
+            // When sort option changes, re-fetch with new sorting
+            currentPage.value = 1;
+            fetchRecipeData();
+        };
+        
+        // Main fetch function that gets recipes from TheMealDB API
+        const fetchRecipeData = async () => {
+            try {
+                loading.value = true;
+                error.value = '';
+                
+                // Sync active filters with props
+                updateActiveFilters();
+                
+                // Used for debug - helps track which filter/search is being used
+                if (searchQuery.value) {
+                    console.log(`Searching for: "${searchQuery.value}"`);
+                } else if (activeFilters.value.ingredient) {
+                    console.log(`Filtering by ingredient: "${activeFilters.value.ingredient}"`);
+                } else if (activeFilters.value.category) {
+                    console.log(`Filtering by category: "${activeFilters.value.category}"`);
+                } else if (activeFilters.value.area) {
+                    console.log(`Filtering by cuisine: "${activeFilters.value.area}"`);
+                } else {
+                    console.log("Loading default recipes");
+                }
+                
+                try {
+                    let data;
+                    
+                    // Apply API filters based on active filters
+                    if (activeFilters.value.ingredient) {
+                        // Filter by main ingredient
+                        data = await getRecipesByIngredient(activeFilters.value.ingredient);
+                    } else if (activeFilters.value.category) {
+                        // Filter by category
+                        data = await getRecipesByCategory(activeFilters.value.category);
+                    } else if (activeFilters.value.area) {
+                        // Filter by area/cuisine
+                        data = await getRecipesByArea(activeFilters.value.area);
+                    } else {
+                        // Regular search or default recipes
+                        const options = {
+                            page: currentPage.value,
+                            pageSize: pageSize,
+                            sort: internalSortOption.value || props.sortOption
+                        };
+                        
+                        data = await fetchRecipes(searchQuery.value || '', options);
+                    }
+                    
+                    // Check if we got valid results from TheMealDB API
+                    if (data && data.results && Array.isArray(data.results)) {
+                        // Store all recipes for client-side operations
+                        allRecipes.value = data.results;
+                        
+                        // If there's a search query, prioritize exact matches
+                        if (searchQuery.value) {
+                            // Apply relevance sorting - bring most relevant results to the top
+                            allRecipes.value = sortByRelevance(allRecipes.value, searchQuery.value);
+                            
+                            // Force sort option to relevance when searching for better UX
+                            // But only if the user hasn't explicitly set another sort
+                            if (!internalSortOption.value) {
+                                internalSortOption.value = 'relevance';
+                            }
+                        }
+                        
+                        // Update total count for pagination
+                        totalResults.value = allRecipes.value.length || 0;
+                        
+                        // Show a message if very few results were found, but don't block display
+                        if (allRecipes.value.length < 5 && (searchQuery.value || hasActiveFilters.value)) {
+                            error.value = `Found only ${allRecipes.value.length} results. TheMealDB has limited search capabilities.`;
+                        } else {
+                            error.value = '';
+                        }
+                        
+                        // Apply sorting client-side (using props.sortOption if no internal override)
+                        const effectiveSortOption = internalSortOption.value || props.sortOption;
+                        allRecipes.value = sortRecipes(allRecipes.value, effectiveSortOption, searchQuery.value);
+                        
+                        // Handle client-side pagination
+                        const start = (currentPage.value - 1) * pageSize;
+                        const end = start + pageSize;
+                        
+                        // Get recipes for the current page
+                        const pagedResults = allRecipes.value.slice(start, end);
+                        
+                        if (pagedResults.length > 0) {
+                            // Format recipes for display
+                            recipes.value = pagedResults.map(recipe => ({
+                                id: recipe.id,
+                                title: recipe.title,
+                                image: recipe.image || 'https://via.placeholder.com/556x370?text=No+Image+Available',
+                                description: recipe.summary ? recipe.summary.substring(0, 100).replace(/<[^>]*>/g, '') + '...' : 'Delicious recipe',
+                                rating: recipe.rating || 4.5, // TheMealDB doesn't provide ratings, using default
+                                category: recipe.category || 'Main Course',
+                                cookingTime: recipe.readyInMinutes || 30,
+                                servings: recipe.servings || 4,
+                                author: 'TheMealDB',
+                                type: recipe.dishTypes && recipe.dishTypes.length > 0 ? 
+                                    recipe.dishTypes[0].toUpperCase().replace(' ', '_') : 'MAIN_COURSE'
+                            }));
+                        } else {
+                            recipes.value = [];
+                            
+                            if (currentPage.value > 1) {
+                                // If no results on current page but there are earlier pages,
+                                // go back to first page
+                                currentPage.value = 1;
+                                fetchRecipeData();
+                                return;
+                            }
+                        }
+                    } else {
+                        throw new Error('No recipes found from TheMealDB API');
+                    }
+                } catch (apiError) {
+                    console.error('API call failed, using mock data', apiError);
+                    
+                    // Generate a good amount of mock data
+                    const mockCount = searchQuery.value || hasActiveFilters.value ? 8 : 24; // More variety if not searching
+                    const mockRecipes = generateMockRecipes(mockCount);
+                    
+                    // Store all mock recipes for client-side operations
+                    allRecipes.value = mockRecipes;
+                    
+                    if (searchQuery.value) {
+                        // Filter mock recipes by search term for more realistic results
+                        allRecipes.value = mockRecipes.filter(recipe => 
+                            recipe.title.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+                            recipe.category.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+                            recipe.area.toLowerCase().includes(searchQuery.value.toLowerCase())
+                        );
+                        
+                        // If no results, show all mock recipes
+                        if (allRecipes.value.length === 0) {
+                            allRecipes.value = mockRecipes;
+                        }
+                    }
+                    
+                    // Apply sorting
+                    const effectiveSortOption = internalSortOption.value || props.sortOption;
+                    allRecipes.value = sortRecipes(allRecipes.value, effectiveSortOption, searchQuery.value);
+                    
+                    // Apply pagination to mock data
+                    const start = (currentPage.value - 1) * pageSize;
+                    const end = start + pageSize;
+                    recipes.value = allRecipes.value.slice(start, end);
+                    
+                    totalResults.value = allRecipes.value.length;
+                    error.value = 'Unable to fetch from TheMealDB API. Using sample recipes instead.';
+                }
+            } catch (err) {
+                console.error('Error fetching recipes:', err);
+                error.value = 'Failed to load recipes. Please try again later.';
+                recipes.value = [];
+                totalResults.value = 0;
+            } finally {
+                loading.value = false;
             }
-
-            const start = (this.currentPage - 1) * 9;
-            const end = start + 9;
-            return filtered.slice(start, end);
-        },
-        totalPages() {
-            return Math.ceil(this.recipes.length / 9);
-        }
-    },
-    methods: {
-        changePage(page) {
-            if (page >= 1 && page <= this.totalPages) {
-                this.currentPage = page;
+        };
+        
+        // Methods
+        const searchRecipes = () => {
+            // Reset page to 1 when searching
+            currentPage.value = 1;
+            
+            // Force sort by relevance when searching for better results
+            internalSortOption.value = 'relevance';
+            
+            // Trim input to avoid whitespace issues
+            searchQuery.value = searchQuery.value.trim();
+            
+            // Clear any active filters when searching
+            activeFilters.value = {
+                ingredient: '',
+                category: '',
+                area: ''
+            };
+            
+            fetchRecipeData();
+        };
+        
+        const changePage = (page) => {
+            if (page >= 1 && page <= totalPages.value && !loading.value) {
+                // Scroll to top of recipe list for better UX
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                currentPage.value = page;
+                fetchRecipeData();
             }
-        },
-        searchRecipes() {
-            this.currentPage = 1;
-        }
-    },
-    mounted() {
-        AOS.init();
+        };
+        
+        // Initial data load and watchers
+        onMounted(() => {
+            AOS.init();
+            fetchRecipeData();
+        });
+        
+        watch([() => props.sortOption], () => {
+            currentPage.value = 1;
+            fetchRecipeData();
+        });
+        
+        // Add watcher for page changes
+        watch(currentPage, () => {
+            fetchRecipeData();
+        });
+        
+        // Watch for changes in the selected filters
+        watch(() => props.selectedFilters, () => {
+            currentPage.value = 1;
+            fetchRecipeData();
+        }, { deep: true });
+        
+        return {
+            searchQuery,
+            internalSortOption,
+            currentPage,
+            recipes,
+            loading,
+            error,
+            totalResults,
+            pageSize,
+            totalPages,
+            displayedPages,
+            isMobile,
+            activeFilters,
+            hasActiveFilters,
+            searchRecipes,
+            changePage,
+            fetchRecipeData,
+            removeFilter,
+            clearAllFilters,
+            handleSortChange
+        };
     }
 };
 </script>
+
+<style scoped>
+.page-link {
+    color: #28a745;
+    transition: all 0.2s ease-in-out;
+    font-weight: 500;
+}
+
+.page-item.active .page-link {
+    background-color: #28a745;
+    border-color: #28a745;
+    color: white;
+    font-weight: bold;
+    transform: scale(1.05);
+}
+
+.page-link:hover:not(.disabled) {
+    background-color: #e9f9f0;
+    color: #218838;
+}
+
+.page-link:focus {
+    box-shadow: 0 0 0 0.25rem rgba(40, 167, 69, 0.25);
+}
+
+.pagination {
+    margin-top: 30px;
+    padding: 10px 0;
+}
+</style>

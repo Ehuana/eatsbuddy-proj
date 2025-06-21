@@ -16,6 +16,8 @@
     "aos": "^2.3.4",
     "bootstrap": "^5.3.3",
     "core-js": "^3.8.3",
+    "firebase": "^10.12.1",
+    "remixicon": "^4.2.0",
     "swiper": "^11.1.15",
     "vue": "^3.2.13",
     "vue-router": "^4.0.3"

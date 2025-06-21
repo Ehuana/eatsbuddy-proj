@@ -1,0 +1,20 @@
+/* Fallback for Remixicon icons if the package isn't installed */
+@import url("https://cdn.jsdelivr.net/npm/remixicon@2.5.0/fonts/remixicon.css");
+
+/* Fallback classes for icons */
+.ri-arrow-left-s-line:before { content: "←"; }
+.ri-arrow-right-s-line:before { content: "→"; }
+.ri-login-circle-line:before { content: "🔑"; }
+.ri-user-add-line:before { content: "👤+"; }
+.ri-error-warning-line:before { content: "⚠️"; }
+.ri-mail-line:before { content: "✉️"; }
+.ri-lock-2-line:before { content: "🔒"; }
+.ri-eye-line:before { content: "👁️"; }
+.ri-eye-off-line:before { content: "👁️‍🗨️"; }
+.ri-shield-check-line:before { content: "🛡️"; }
+.ri-google-fill:before { content: "G"; }
+.ri-facebook-fill:before { content: "f"; }
+.ri-apple-fill:before { content: ""; }
+.ri-restaurant-2-line:before { content: "🍽️"; }
+
+/* Add any other icons used in your app here */

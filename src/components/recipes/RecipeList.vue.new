@@ -1,0 +1,346 @@
+<template>
+    <div>
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div class="input-group w-50">
+                <input type="text" v-model="searchQuery" class="form-control" placeholder="Search for recipes...">
+                <button class="btn btn-success" @click="searchRecipes">Search</button>
+            </div>
+            <select v-model="sortOption" class="form-select w-auto">
+                <option value="popularity">Sort by Popularity</option>
+                <option value="healthiness">Sort by Healthiness</option>
+                <option value="time">Sort by Time</option>
+                <option value="random">Random</option>
+            </select>
+        </div>
+        
+        <div v-if="loading" class="text-center my-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-3">Searching for delicious recipes...</p>
+        </div>
+        
+        <div v-else-if="error" class="alert" :class="error.includes('TheMealDB') ? 'alert-warning' : 'alert-danger'" role="alert">
+            <i class="ri-error-warning-line me-2"></i> {{ error }}
+            <button v-if="error.includes('TheMealDB')" class="btn btn-outline-secondary btn-sm ms-2" @click="fetchRecipeData">
+                Try Again
+            </button>
+        </div>
+        
+        <div v-else-if="recipes.length === 0" class="text-center my-5">
+            <p>No recipes found. Try a different search term.</p>
+        </div>
+        
+        <div v-else class="row g-4">
+            <RecipeItem v-for="recipe in recipes" :key="recipe.id" :recipe="recipe" />
+        </div>
+        
+        <nav v-if="recipes.length > 0 && totalResults > pageSize" aria-label="Page navigation" class="mt-4">
+            <div v-if="loading" class="text-center mb-2">
+                <small class="text-muted">Loading page {{ currentPage }}...</small>
+                <div class="progress" style="height: 4px;">
+                    <div class="progress-bar bg-success progress-bar-striped progress-bar-animated" style="width: 100%"></div>
+                </div>
+            </div>
+            <ul class="pagination justify-content-center">
+                <li class="page-item" :class="{ disabled: currentPage === 1 || loading }">
+                    <a class="page-link" href="#" @click.prevent="changePage(currentPage - 1)">
+                        <i class="ri-arrow-left-s-line"></i> Previous
+                    </a>
+                </li>
+                <li class="page-item" v-if="displayedPages[0] > 1">
+                    <a class="page-link" href="#" @click.prevent="changePage(1)">1</a>
+                </li>
+                <li class="page-item disabled" v-if="displayedPages[0] > 2">
+                    <span class="page-link">...</span>
+                </li>
+                <li class="page-item" v-for="page in displayedPages" :key="page" :class="{ active: currentPage === page, disabled: loading }">
+                    <a class="page-link" href="#" @click.prevent="changePage(page)">{{ page }}</a>
+                </li>
+                <li class="page-item disabled" v-if="displayedPages[displayedPages.length - 1] < totalPages - 1">
+                    <span class="page-link">...</span>
+                </li>
+                <li class="page-item" v-if="displayedPages[displayedPages.length - 1] < totalPages">
+                    <a class="page-link" href="#" @click.prevent="changePage(totalPages)">{{ totalPages }}</a>
+                </li>
+                <li class="page-item" :class="{ disabled: currentPage === totalPages || loading }">
+                    <a class="page-link" href="#" @click.prevent="changePage(currentPage + 1)">
+                        Next <i class="ri-arrow-right-s-line"></i>
+                    </a>
+                </li>
+            </ul>
+            <div class="text-center mt-2">
+                <small class="text-muted">
+                    Showing page {{ currentPage }} of {{ totalPages }} 
+                    ({{ totalResults }} total recipes)
+                </small>
+            </div>
+        </nav>
+    </div>
+</template>
+
+<script>
+import { ref, computed, watch, onMounted } from 'vue';
+import RecipeItem from './RecipeItem.vue';
+import { searchRecipes as fetchRecipes } from '@/services/mealApi';
+import AOS from 'aos';
+import 'aos/dist/aos.css';
+
+export default {
+    components: {
+        RecipeItem,
+    },
+    setup() {
+        const searchQuery = ref('');
+        const sortOption = ref('popularity');
+        const currentPage = ref(1);
+        const recipes = ref([]);
+        const loading = ref(false);
+        const error = ref('');
+        const totalResults = ref(0);
+        const pageSize = 12; // Number of recipes per page
+        
+        // Computed properties
+        const totalPages = computed(() => {
+            // Limit total pages to avoid excessive API calls
+            const calculatedPages = Math.min(Math.ceil(totalResults.value / pageSize), 20);
+            return calculatedPages;
+        });
+        
+        const displayedPages = computed(() => {
+            const pages = [];
+            // Show a smaller window on mobile, wider on desktop
+            const windowSize = window.innerWidth < 768 ? 1 : 2;
+            
+            let startPage = Math.max(1, currentPage.value - windowSize);
+            let endPage = Math.min(totalPages.value, currentPage.value + windowSize);
+            
+            // Adjust start/end to always show the same number of page links when possible
+            if (endPage - startPage < windowSize * 2 && totalPages.value > windowSize * 2 + 1) {
+                if (startPage === 1) {
+                    endPage = Math.min(totalPages.value, windowSize * 2 + 1);
+                } else if (endPage === totalPages.value) {
+                    startPage = Math.max(1, totalPages.value - windowSize * 2);
+                }
+            }
+            
+            for (let i = startPage; i <= endPage; i++) {
+                pages.push(i);
+            }
+            
+            return pages;
+        });
+        
+        // Methods
+        const fetchRecipeData = async () => {
+            try {
+                loading.value = true;
+                error.value = '';
+                
+                console.log(`Fetching recipes for search: "${searchQuery.value}"`);
+                
+                try {
+                    // First try fetching from TheMealDB API
+                    const result = await fetchRecipes(searchQuery.value || '');
+                    
+                    if (result && result.results) {
+                        // TheMealDB doesn't support pagination, so we need to handle it client-side
+                        totalResults.value = result.results.length;
+                        
+                        // Calculate pagination indices
+                        const start = (currentPage.value - 1) * pageSize;
+                        const end = start + pageSize;
+                        
+                        // Get only the recipes for the current page
+                        const pagedResults = {
+                            results: result.results.slice(start, end),
+                            totalResults: result.results.length
+                        };
+                        
+                        // Apply sorting if needed
+                        if (sortOption.value) {
+                            pagedResults.results = sortRecipes(pagedResults.results, sortOption.value);
+                        }
+                        
+                        processRecipeResults(pagedResults);
+                    } else {
+                        throw new Error('No recipes found');
+                    }
+                } catch (apiError) {
+                    console.error('API call failed, using mock data', apiError);
+                    
+                    // Generate mock data
+                    const mockResults = generateMockRecipes(8);
+                    processRecipeResults({
+                        results: mockResults,
+                        totalResults: 20 // Simulate having more results for pagination
+                    });
+                    
+                    error.value = 'Unable to fetch from TheMealDB API. Using sample recipes instead.';
+                }
+                
+                function processRecipeResults(result) {
+                    if (result && result.results && Array.isArray(result.results)) {
+                        recipes.value = result.results.map(recipe => ({
+                            id: recipe.id,
+                            title: recipe.title,
+                            image: recipe.image || 'https://via.placeholder.com/556x370?text=No+Image+Available',
+                            description: recipe.summary ? recipe.summary.substring(0, 100) + '...' : 'Delicious recipe',
+                            rating: 4.5, // TheMealDB doesn't provide ratings, using default
+                            category: recipe.category || 'Main Course',
+                            cookingTime: recipe.readyInMinutes || 30,
+                            servings: recipe.servings || 4,
+                            author: 'TheMealDB',
+                            type: recipe.dishTypes && recipe.dishTypes.length > 0 ? 
+                                recipe.dishTypes[0].toUpperCase().replace(' ', '_') : 'MAIN_COURSE'
+                        }));
+                        
+                        totalResults.value = result.totalResults || recipes.value.length;
+                    } else {
+                        throw new Error('Invalid recipe data format');
+                    }
+                }
+                
+                // Helper function to sort recipes
+                function sortRecipes(recipeList, sortType) {
+                    const sortedRecipes = [...recipeList];
+                    
+                    switch (sortType) {
+                        case 'popularity':
+                            // Sort by rating (descending)
+                            sortedRecipes.sort((a, b) => b.rating - a.rating);
+                            break;
+                        case 'healthiness':
+                            // Since we don't have health score, sort alphabetically as a fallback
+                            sortedRecipes.sort((a, b) => a.title.localeCompare(b.title));
+                            break;
+                        case 'time':
+                            // Sort by cooking time (ascending)
+                            sortedRecipes.sort((a, b) => a.readyInMinutes - b.readyInMinutes);
+                            break;
+                        case 'random':
+                            // Shuffle the array
+                            for (let i = sortedRecipes.length - 1; i > 0; i--) {
+                                const j = Math.floor(Math.random() * (i + 1));
+                                [sortedRecipes[i], sortedRecipes[j]] = [sortedRecipes[j], sortedRecipes[i]];
+                            }
+                            break;
+                    }
+                    
+                    return sortedRecipes;
+                }
+                
+                // Helper function to generate mock recipes
+                function generateMockRecipes(count) {
+                    const mockRecipes = [];
+                    
+                    const categories = ['Main Course', 'Dessert', 'Appetizer', 'Breakfast'];
+                    const cuisines = ['Italian', 'Asian', 'Mexican', 'American', 'French'];
+                    
+                    for (let i = 1; i <= count; i++) {
+                        const id = `mock-${i}`;
+                        mockRecipes.push({
+                            id: id,
+                            title: `Delicious Recipe ${i}`,
+                            image: `https://via.placeholder.com/300x200?text=Recipe+${i}`,
+                            summary: `This is a tasty recipe number ${i} that you can easily prepare at home.`,
+                            readyInMinutes: Math.floor(Math.random() * 50) + 10,
+                            servings: Math.floor(Math.random() * 4) + 1,
+                            category: categories[i % categories.length],
+                            area: cuisines[i % cuisines.length],
+                            dishTypes: [categories[i % categories.length].toLowerCase()],
+                            cuisines: [cuisines[i % cuisines.length]]
+                        });
+                    }
+                    
+                    return mockRecipes;
+                }
+                
+            } catch (err) {
+                console.error('Error fetching recipes:', err);
+                error.value = 'Failed to load recipes. Please try again later.';
+                recipes.value = [];
+            } finally {
+                loading.value = false;
+            }
+        };
+        
+        const searchRecipes = () => {
+            currentPage.value = 1;
+            fetchRecipeData();
+        };
+        
+        const changePage = (page) => {
+            if (page >= 1 && page <= totalPages.value && !loading.value) {
+                // Scroll to top of recipe list for better UX
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                currentPage.value = page;
+                // Directly call fetchRecipeData in case watcher doesn't trigger
+                fetchRecipeData();
+            }
+        };
+        
+        // Initial data load and watchers
+        onMounted(() => {
+            AOS.init();
+            fetchRecipeData();
+        });
+        
+        watch([sortOption], () => {
+            currentPage.value = 1;
+            fetchRecipeData();
+        });
+        
+        // Add watcher for page changes to trigger new data fetch
+        watch(currentPage, () => {
+            fetchRecipeData();
+        });
+        
+        return {
+            searchQuery,
+            sortOption,
+            currentPage,
+            recipes,
+            loading,
+            error,
+            totalResults,
+            pageSize,
+            totalPages,
+            displayedPages,
+            searchRecipes,
+            changePage,
+            fetchRecipeData
+        };
+    }
+};
+</script>
+
+<style scoped>
+.page-link {
+    color: #28a745;
+    transition: all 0.2s ease-in-out;
+    font-weight: 500;
+}
+
+.page-item.active .page-link {
+    background-color: #28a745;
+    border-color: #28a745;
+    color: white;
+    font-weight: bold;
+    transform: scale(1.05);
+}
+
+.page-link:hover:not(.disabled) {
+    background-color: #e9f9f0;
+    color: #218838;
+}
+
+.page-link:focus {
+    box-shadow: 0 0 0 0.25rem rgba(40, 167, 69, 0.25);
+}
+
+.pagination {
+    margin-top: 30px;
+    padding: 10px 0;
+}
+</style>

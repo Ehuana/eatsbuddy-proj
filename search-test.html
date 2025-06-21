@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .search-container {
+            margin-bottom: 20px;
+        }
+        input {
+            padding: 10px;
+            margin-right: 10px;
+            width: 300px;
+        }
+        button {
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:disabled {
+            background: #ccc;
+        }
+        .results {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .recipe-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .recipe-card img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+        }
+        .recipe-card h3 {
+            padding: 10px;
+            margin: 0;
+            font-size: 14px;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+        .error {
+            color: red;
+            padding: 10px;
+            background: #ffebee;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>TheMealDB Search Test</h1>
+    
+    <div class="search-container">
+        <input type="text" id="searchInput" placeholder="Search for recipes (e.g., chicken, pasta)" />
+        <button onclick="searchRecipes()" id="searchBtn">Search</button>
+    </div>
+    
+    <div id="results"></div>
+
+    <script>
+        let isLoading = false;
+
+        async function searchRecipes() {
+            const searchInput = document.getElementById('searchInput');
+            const searchBtn = document.getElementById('searchBtn');
+            const resultsDiv = document.getElementById('results');
+            const query = searchInput.value.trim();
+
+            console.log('=== SEARCH STARTED ===');
+            console.log('Query:', query);
+
+            if (!query) {
+                alert('Please enter a search term');
+                return;
+            }
+
+            if (isLoading) {
+                console.log('Already loading, skipping...');
+                return;
+            }
+
+            try {
+                isLoading = true;
+                searchBtn.disabled = true;
+                searchBtn.textContent = 'Searching...';
+                resultsDiv.innerHTML = '<div class="loading">Searching for recipes...</div>';
+
+                console.log('Making API call...');
+                const response = await fetch(`https://www.themealdb.com/api/json/v1/1/search.php?s=${encodeURIComponent(query)}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                console.log('API Response:', data);
+
+                if (data.meals && data.meals.length > 0) {
+                    displayResults(data.meals);
+                } else {
+                    resultsDiv.innerHTML = '<div>No recipes found. Try a different search term.</div>';
+                }
+
+            } catch (error) {
+                console.error('Search error:', error);
+                resultsDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            } finally {
+                isLoading = false;
+                searchBtn.disabled = false;
+                searchBtn.textContent = 'Search';
+            }
+        }
+
+        function displayResults(meals) {
+            const resultsDiv = document.getElementById('results');
+            const resultsHTML = meals.map(meal => `
+                <div class="recipe-card">
+                    <img src="${meal.strMealThumb}" alt="${meal.strMeal}" />
+                    <h3>${meal.strMeal}</h3>
+                </div>
+            `).join('');
+
+            resultsDiv.innerHTML = `
+                <h2>Found ${meals.length} recipes:</h2>
+                <div class="results">${resultsHTML}</div>
+            `;
+        }
+
+        // Allow Enter key to trigger search
+        document.getElementById('searchInput').addEventListener('keyup', function(event) {
+            if (event.key === 'Enter') {
+                searchRecipes();
+            }
+        });
+
+        // Test API on page load
+        window.onload = async function() {
+            console.log('Testing API connection...');
+            try {
+                const testResponse = await fetch('https://www.themealdb.com/api/json/v1/1/search.php?s=chicken');
+                const testData = await testResponse.json();
+                console.log('✅ API test successful:', testData.meals ? testData.meals.length + ' recipes found' : 'No results');
+            } catch (error) {
+                console.error('❌ API test failed:', error);
+            }
+        };
+    </script>
+</body>
+</html>
